@@ -1,0 +1,140 @@
+// SubZero — Prisma Schema
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// ── User ──────────────────────────────────────────────────────────────────────
+
+model User {
+  id            String   @id @default(cuid())
+  name          String
+  email         String   @unique
+  passwordHash  String   // bcrypt hash, NEVER plaintext
+  emailVerified Boolean  @default(false)
+  image         String?
+
+  // Email verification token (SHA-256 hashed, one-time, expires 24h)
+  verificationTokenHash     String?
+  verificationTokenExpiry   DateTime?
+  verificationResendCount   Int      @default(0)
+  verificationResendWindowStart DateTime?
+
+  // Password reset token (SHA-256 hashed, one-time, expires 1h)
+  resetTokenHash        String?
+  resetTokenExpiry      DateTime?
+  resetResendCount      Int      @default(0)
+  resetResendWindowStart DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relations
+  subscriptions   Subscription[]
+  transactions    Transaction[]
+  jobs            CancellationJob[]
+  bankConnections BankConnection[]
+  settings        UserSettings?
+
+  @@map("users")
+}
+
+// ── Subscription ──────────────────────────────────────────────────────────────
+
+model Subscription {
+  id           String             @id @default(cuid())
+  userId       String
+  name         String
+  amount       Float
+  billingCycle String             // "monthly" | "annual"
+  nextBill     String?
+  lastUsed     String?
+  status       String             // "active" | "flagged" | "running" | "cancelled" | "idle"
+  logoChar     String?
+  logoBg       String?
+  logoColor    String?
+  createdAt    DateTime           @default(now())
+  updatedAt    DateTime           @updatedAt
+
+  user User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  jobs CancellationJob[]
+
+  @@index([userId])
+  @@map("subscriptions")
+}
+
+// ── Transaction ───────────────────────────────────────────────────────────────
+
+model Transaction {
+  id       String   @id @default(cuid())
+  userId   String
+  merchant String
+  date     String
+  amount   Float
+  type     String   // "debit" | "credit"
+  flagged  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("transactions")
+}
+
+// ── CancellationJob ───────────────────────────────────────────────────────────
+
+model CancellationJob {
+  id               String    @id @default(cuid())
+  userId           String
+  subscriptionId   String
+  subscriptionName String
+  status           String    // "pending" | "running" | "completed" | "failed"
+  startedAt        DateTime?
+  completedAt      DateTime?
+  error            String?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("cancellation_jobs")
+}
+
+// ── BankConnection ────────────────────────────────────────────────────────────
+
+model BankConnection {
+  id              String   @id @default(cuid())
+  userId          String
+  bankName        String
+  accountMask     String   // last 4 digits only
+  status          String   // "active" | "expired" | "error"
+  accessTokenHash String   // hashed — never store raw token
+  connectedAt     DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@map("bank_connections")
+}
+
+// ── UserSettings ──────────────────────────────────────────────────────────────
+
+model UserSettings {
+  userId            String   @id
+  emailAlerts       Boolean  @default(true)
+  pushNotifications Boolean  @default(true)
+  autoCancel        Boolean  @default(false)
+  updatedAt         DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("user_settings")
+}

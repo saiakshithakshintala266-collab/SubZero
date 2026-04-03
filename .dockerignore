@@ -1,0 +1,43 @@
+# ── Files that must NEVER be in the Docker image ────────────────────
+.env
+.env.local
+.env*.local
+.env.production
+
+# Secrets and keys
+*.pem
+*.key
+
+# Dev dependencies and build artifacts
+node_modules
+.next
+
+# Source control
+.git
+.gitignore
+.gitattributes
+
+# Documentation (keep image small)
+*.md
+LICENSE
+
+# Docker meta-files themselves
+Dockerfile*
+docker-compose*
+.dockerignore
+
+# Editor / IDE
+.vscode
+.idea
+*.swp
+*.swo
+
+# OS noise
+.DS_Store
+Thumbs.db
+
+# Test files
+src/tests
+coverage
+*.test.ts
+*.spec.ts
