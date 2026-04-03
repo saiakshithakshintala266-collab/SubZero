@@ -19,6 +19,7 @@ import { issuePasswordResetToken, canRequestPasswordReset } from "@/lib/user-sto
 import { checkForgotLimit, getClientIp } from "@/lib/rate-limit";
 import { authLogger }             from "@/lib/logger";
 import { trackRateLimitExceeded } from "@/lib/anomaly-detection";
+import { sendPasswordResetEmail } from "@/lib/email";
 
 const SUCCESS_BODY = {
   ok: true,
@@ -73,11 +74,8 @@ export async function POST(req: NextRequest) {
 
   if (rawToken) {
     authLogger.info({ event: "auth.password_reset.token_issued" });
-    const resetUrl = `${process.env.NEXTAUTH_URL ?? "http://localhost:3001"}/reset-password?token=${rawToken}`;
-    if (process.env.NODE_ENV !== "production") {
-      console.log(`\n📧  [DEV] Password reset link for ${email}:\n    ${resetUrl}\n`);
-    }
-    // Production: await sendPasswordResetEmail(email, resetUrl);
+    // Fire-and-forget — always return same response regardless of email outcome
+    void sendPasswordResetEmail(email, rawToken);
   }
 
   // ── 5. Always return the same response ────────────────────────────

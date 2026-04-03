@@ -17,7 +17,8 @@ import {
   issueVerificationToken,
 } from "@/lib/user-store";
 import { checkResendLimit, getClientIp } from "@/lib/rate-limit";
-import { authLogger }             from "@/lib/logger";
+import { authLogger }                    from "@/lib/logger";
+import { sendResendVerificationEmail }   from "@/lib/email";
 import { trackRateLimitExceeded } from "@/lib/anomaly-detection";
 
 // ── POST /api/auth/verify-email ────────────────────────────────────────────────
@@ -109,11 +110,10 @@ async function handleResend(req: NextRequest, body: unknown) {
   }
 
   const rawToken = await issueVerificationToken(email);
-  if (rawToken && process.env.NODE_ENV !== "production") {
-    const url = `${process.env.NEXTAUTH_URL ?? "http://localhost:3001"}/verify-email?token=${rawToken}`;
-    console.log(`\n📧  [DEV] Resent verification link for ${email}:\n    ${url}\n`);
+  if (rawToken) {
+    // Fire-and-forget — always return same response to prevent enumeration
+    void sendResendVerificationEmail(email, rawToken);
   }
-  // Production: await sendVerificationEmail(email, rawToken)
 
   // Always return success to prevent enumeration
   return NextResponse.json({ ok: true, message: "Verification email sent if account exists." });

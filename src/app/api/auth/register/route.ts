@@ -19,6 +19,7 @@ import { findUserByEmail, createUser }    from "@/lib/user-store";
 import { checkRegisterLimit, getClientIp } from "@/lib/rate-limit";
 import { authLogger }                      from "@/lib/logger";
 import { trackRateLimitExceeded }          from "@/lib/anomaly-detection";
+import { sendVerificationEmail }           from "@/lib/email";
 
 const BCRYPT_ROUNDS = 12;
 
@@ -77,12 +78,7 @@ export async function POST(req: NextRequest) {
   authLogger.info({ event: "auth.signup.success", userId: newUser.id });
 
   // ── 7. Send verification email ─────────────────────────────────────
-  // In production: await sendVerificationEmail(email, name, verificationToken)
-  // For dev: log to console (never expose token in API response)
-  if (process.env.NODE_ENV !== "production") {
-    const verifyUrl = `${process.env.NEXTAUTH_URL ?? "http://localhost:3001"}/verify-email?token=${verificationToken}`;
-    console.log(`\n📧  [DEV] Verification link for ${email}:\n    ${verifyUrl}\n`);
-  }
+  await sendVerificationEmail(email, name, verificationToken);
 
   // ── 8. Respond ─────────────────────────────────────────────────────
   return NextResponse.json({ ok: true }, { status: 201 });

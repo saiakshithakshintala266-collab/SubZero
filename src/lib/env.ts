@@ -49,6 +49,9 @@ const envSchema = z.object({
   EMAIL_SERVER_PASSWORD: z.string().optional(),
   EMAIL_FROM:            z.string().optional(),
 
+  // ── Resend (transactional email) ──────────────────────────────────────
+  RESEND_API_KEY: z.string().optional(),
+
   // ── Teller (bank data API) ────────────────────────────────────────────
   TELLER_API_KEY:          z.string().optional(),
   TELLER_APPLICATION_ID:   z.string().optional(),
