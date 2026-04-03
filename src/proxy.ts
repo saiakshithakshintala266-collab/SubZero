@@ -123,11 +123,13 @@ export default auth(function proxy(req: NextAuthRequest) {
     p === "/" ? pathname === "/" : pathname.startsWith(p)
   );
 
-  // ── 3. Auth-only pages (redirect authenticated users away) ────────
+  // ── 3. Auth-only pages ────────────────────────────────────────────
+  // Only redirect FULLY verified users away from /login, /signup etc.
+  // Unverified users must be allowed through so they can sign out or
+  // switch accounts — otherwise they'd be permanently trapped in a loop.
   const isAuthOnly = AUTH_ONLY_PREFIXES.some((p) => pathname.startsWith(p));
-  if (isAuthenticated && isAuthOnly) {
-    const dest = isEmailVerified ? "/dashboard" : "/verify-email";
-    return addSecurityHeaders(NextResponse.redirect(new URL(dest, req.url)));
+  if (isAuthenticated && isEmailVerified && isAuthOnly) {
+    return addSecurityHeaders(NextResponse.redirect(new URL("/dashboard", req.url)));
   }
 
   // ── 4. Verified-required routes ───────────────────────────────────

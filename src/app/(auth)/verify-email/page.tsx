@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { signOut } from "next-auth/react";
 import { motion, AnimatePresence } from "framer-motion";
 import { CheckCircle2, AlertCircle } from "lucide-react";
 import AuthCard from "@/components/AuthCard";
@@ -227,6 +228,17 @@ export default function VerifyEmailPage() {
                     className="font-semibold text-[var(--sz-teal)] hover:underline"
                   >
                     Resend code
+                  </button>
+                </p>
+
+                <p className="text-center text-sm text-[var(--sz-ink-light)]" style={{ fontFamily: "var(--font-plus-jakarta)" }}>
+                  Wrong account?{" "}
+                  <button
+                    type="button"
+                    onClick={() => signOut({ redirectTo: "/login" })}
+                    className="font-semibold text-[var(--sz-teal)] hover:underline"
+                  >
+                    Sign in with a different account
                   </button>
                 </p>
 
