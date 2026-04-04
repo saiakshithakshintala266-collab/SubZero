@@ -14,8 +14,8 @@ import Credentials from "next-auth/providers/credentials";
 import Google from "next-auth/providers/google";
 import bcrypt from "bcryptjs";
 
-import { findUserByEmail }  from "@/lib/user-store";
-import { loginSchema }      from "@/lib/validation";
+import { findUserByEmail, upsertOAuthUser } from "@/lib/user-store";
+import { loginSchema }                      from "@/lib/validation";
 import { authLogger }       from "@/lib/logger";
 import {
   trackFailedLogin,
@@ -175,16 +175,45 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
   // ── Callbacks ─────────────────────────────────────────────────────
   callbacks: {
+    /**
+     * Runs on every sign-in attempt before the JWT is issued.
+     * For Google OAuth: upsert the user in Supabase so they always
+     * have a database record. Blocks sign-in if the DB write fails.
+     */
+    async signIn({ user, account, profile }) {
+      if (account?.provider === "google" && profile) {
+        try {
+          const dbUser = await upsertOAuthUser({
+            email:      profile.email!,
+            name:       profile.name ?? user.name ?? "Google User",
+            image:      profile.picture as string | undefined,
+            providerId: profile.sub!,
+          });
+          // Sync DB id back so it flows into the JWT correctly
+          user.id    = dbUser.id;
+          user.email = dbUser.email;
+          user.name  = dbUser.name;
+          user.image = dbUser.image ?? undefined;
+          authLogger.info({ event: "auth.oauth.upsert", userId: dbUser.id, provider: "google" });
+        } catch (err) {
+          authLogger.error({ event: "auth.oauth.upsert.failed", error: String(err) });
+          return false; // block sign-in if DB write failed
+        }
+      }
+      return true;
+    },
+
     /** Persist minimal, non-sensitive fields in the JWT */
-    async jwt({ token, user }) {
+    async jwt({ token, user, account }) {
       if (user) {
         token.id      = user.id;
         token.email   = user.email;
         token.name    = user.name;
         token.picture = user.image ?? undefined;
-        // Auth.js JWT.emailVerified is typed as Date — use a custom key for our boolean.
+        // OAuth users (Google) are always email-verified
+        const isOAuth = account?.provider === "google";
         const u = user as typeof user & { emailVerified?: boolean };
-        token["szEmailVerified"] = u.emailVerified ?? false;
+        token["szEmailVerified"] = isOAuth ? true : (u.emailVerified ?? false);
       }
       return token;
     },

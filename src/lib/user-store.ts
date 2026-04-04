@@ -64,6 +64,42 @@ export async function updateUser(id: string, patch: Partial<Omit<User, "id" | "c
   return db.user.update({ where: { id }, data: patch });
 }
 
+/**
+ * Create or update a user from an OAuth provider (e.g. Google).
+ * - New users: created with emailVerified:true, no passwordHash
+ * - Existing users: name + image updated to stay in sync with provider
+ * Always safe to call on every OAuth sign-in.
+ */
+export async function upsertOAuthUser({
+  email,
+  name,
+  image,
+  providerId,
+}: {
+  email: string;
+  name: string;
+  image?: string | null;
+  providerId: string; // e.g. Google's `sub` field
+}): Promise<User> {
+  const normalizedEmail = email.toLowerCase().trim();
+  return db.user.upsert({
+    where: { email: normalizedEmail },
+    create: {
+      id:            providerId,   // use provider's stable ID for new users
+      email:         normalizedEmail,
+      name:          name.trim(),
+      image:         image ?? null,
+      passwordHash:  "",           // OAuth users never have a password
+      emailVerified: true,         // Google already verified this email
+    },
+    update: {
+      name:  name.trim(),
+      image: image ?? null,
+      emailVerified: true,         // keep verified in case they previously signed up by email
+    },
+  });
+}
+
 // ── Email verification ────────────────────────────────────────────────────────
 
 export type VerifyResult =
