@@ -16,12 +16,14 @@ import bcrypt from "bcryptjs";
 
 import { findUserByEmail, upsertOAuthUser } from "@/lib/user-store";
 import { loginSchema }                      from "@/lib/validation";
-import { authLogger }       from "@/lib/logger";
+import { authLogger }                       from "@/lib/logger";
 import {
   trackFailedLogin,
   clearFailedLogins,
 } from "@/lib/anomaly-detection";
-import { env }              from "@/lib/env";
+import { env }                              from "@/lib/env";
+import { encrypt }                          from "@/lib/encryption";
+import { db }                               from "@/lib/db";
 
 const SESSION_DURATION = 7 * 24 * 60 * 60; // 7 days in seconds
 
@@ -131,7 +133,19 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           Google({
             clientId:     env.GOOGLE_CLIENT_ID,
             clientSecret: env.GOOGLE_CLIENT_SECRET,
-            // Google accounts are already verified
+            authorization: {
+              params: {
+                // Request Gmail read access alongside basic profile
+                scope: [
+                  "openid",
+                  "profile",
+                  "email",
+                  "https://www.googleapis.com/auth/gmail.readonly",
+                ].join(" "),
+                access_type: "offline", // request refresh token
+                prompt:      "consent", // always show consent to get refresh token
+              },
+            },
             profile(profile) {
               return {
                 id:            profile.sub,
@@ -189,15 +203,35 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
             image:      profile.picture as string | undefined,
             providerId: profile.sub!,
           });
-          // Sync DB id back so it flows into the JWT correctly
           user.id    = dbUser.id;
           user.email = dbUser.email;
           user.name  = dbUser.name;
           user.image = dbUser.image ?? undefined;
+
+          // Store encrypted Gmail tokens so scanner can use them later
+          if (account.access_token) {
+            await db.gmailToken.upsert({
+              where:  { userId: dbUser.id },
+              create: {
+                userId:               dbUser.id,
+                encryptedAccessToken:  encrypt(account.access_token),
+                encryptedRefreshToken: account.refresh_token ? encrypt(account.refresh_token) : null,
+                expiresAt:             account.expires_at ? new Date(account.expires_at * 1000) : null,
+                scope:                 account.scope ?? "",
+              },
+              update: {
+                encryptedAccessToken:  encrypt(account.access_token),
+                encryptedRefreshToken: account.refresh_token ? encrypt(account.refresh_token) : undefined,
+                expiresAt:             account.expires_at ? new Date(account.expires_at * 1000) : null,
+                scope:                 account.scope ?? "",
+              },
+            });
+          }
+
           authLogger.info({ event: "auth.oauth.upsert", userId: dbUser.id, provider: "google" });
         } catch (err) {
           authLogger.error({ event: "auth.oauth.upsert.failed", error: String(err) });
-          return false; // block sign-in if DB write failed
+          return false;
         }
       }
       return true;

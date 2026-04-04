@@ -31,7 +31,7 @@ export type { PrismaSettings as UserSettings };
 export type PublicSubscription = Omit<PrismaSubscription, "userId" | "createdAt" | "updatedAt">;
 export type PublicTransaction   = Omit<PrismaTransaction,  "userId" | "createdAt">;
 export type PublicJob           = Omit<PrismaJob,           "userId">;
-export type PublicBankConnection = Omit<PrismaBankConnection, "userId" | "accessTokenHash">;
+export type PublicBankConnection = Omit<PrismaBankConnection, "userId" | "encryptedToken" | "plaidItemId">;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -55,7 +55,7 @@ function toPublicJob(j: PrismaJob): PublicJob {
 
 function toPublicConn(c: PrismaBankConnection): PublicBankConnection {
   // eslint-disable-next-line @typescript-eslint/no-unused-vars
-  const { userId: _u, accessTokenHash: _a, ...rest } = c;
+  const { userId: _u, encryptedToken: _a, plaidItemId: _p, ...rest } = c;
   return rest;
 }
 

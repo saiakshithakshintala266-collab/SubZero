@@ -52,6 +52,15 @@ const envSchema = z.object({
   // ── Resend (transactional email) ──────────────────────────────────────
   RESEND_API_KEY: z.string().optional(),
 
+  // ── Plaid (bank connectivity) ───────────────────────────────────────
+  PLAID_CLIENT_ID:  z.string().optional(),
+  PLAID_SECRET:     z.string().optional(),
+  PLAID_ENV:        z.enum(["sandbox", "development", "production"]).default("sandbox"),
+  PLAID_WEBHOOK_URL: z.string().url().optional(),
+
+  // ── Gemini AI ─────────────────────────────────────────────────────────────
+  GEMINI_API_KEY:   z.string().optional(),
+
   // ── Teller (bank data API) ────────────────────────────────────────────
   TELLER_API_KEY:          z.string().optional(),
   TELLER_APPLICATION_ID:   z.string().optional(),

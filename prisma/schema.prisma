@@ -41,6 +41,7 @@ model User {
   jobs            CancellationJob[]
   bankConnections BankConnection[]
   settings        UserSettings?
+  gmailToken      GmailToken?
 
   @@map("users")
 }
@@ -111,18 +112,37 @@ model CancellationJob {
 // ── BankConnection ────────────────────────────────────────────────────────────
 
 model BankConnection {
-  id              String   @id @default(cuid())
-  userId          String
-  bankName        String
-  accountMask     String   // last 4 digits only
-  status          String   // "active" | "expired" | "error"
-  accessTokenHash String   // hashed — never store raw token
-  connectedAt     DateTime @default(now())
+  id                String   @id @default(cuid())
+  userId            String
+  institutionId     String   // Plaid institution_id
+  institutionName   String   // e.g. "Chase"
+  accountMask       String   // last 4 digits only — never full account number
+  status            String   // "active" | "expired" | "error"
+  encryptedToken    String   // AES-256-GCM encrypted Plaid access_token
+  plaidItemId       String   @unique // Plaid item_id for webhooks
+  connectedAt       DateTime @default(now())
+  lastSyncedAt      DateTime?
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@map("bank_connections")
+}
+
+// ── GmailToken ───────────────────────────────────────────────────────────
+model GmailToken {
+  id                   String   @id @default(cuid())
+  userId               String   @unique
+  encryptedAccessToken String   // AES-256-GCM encrypted
+  encryptedRefreshToken String? // Encrypted refresh token for re-auth
+  expiresAt            DateTime?
+  scope                String   // granted Gmail scopes
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("gmail_tokens")
 }
 
 // ── UserSettings ──────────────────────────────────────────────────────────────
